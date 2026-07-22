@@ -1,0 +1,66 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #0b0f14;
+  color: #e6ecf1;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f151c;
+}
+::-webkit-scrollbar-thumb {
+  background: #2c3947;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ff7a1a;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-ember-500 px-5 py-2.5 font-semibold text-white transition hover:bg-ember-600 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-2.5 font-semibold text-white transition hover:bg-white/10;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium text-white/70 transition hover:text-white;
+  }
+  .card {
+    @apply rounded-2xl border border-white/10 bg-ink-800/60 shadow-card backdrop-blur;
+  }
+  .input {
+    @apply w-full rounded-lg border border-white/15 bg-ink-900/60 px-4 py-2.5 text-sm text-white placeholder-white/40 outline-none transition focus:border-ember-500 focus:ring-1 focus:ring-ember-500;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-white/80;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+}
