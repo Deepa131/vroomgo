@@ -8,7 +8,6 @@ const { generateCaptcha } = require("../utils/captcha");
 const router = Router();
 
 // Stateless - the server never has to remember which captcha it issued,
-// see utils/captcha.js.
 router.get("/captcha", (req, res) => {
   const { captchaId, svg } = generateCaptcha();
   return res.status(200).json({ success: true, captchaId, svg });
