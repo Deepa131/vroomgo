@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VroomGo | Vehicle Rental Platform</title>
+    <meta name="description" content="VroomGo - Rent the perfect vehicle for any journey, or list your own fleet and start earning." />
+    <!--
+      Content-Security-Policy (defense-in-depth for XSS)
+      -------------------------------------------------
+      This is the policy the BROWSER enforces while rendering this SPA - it
+      complements (does not replace) the CSP header sent by the backend API
+      (see backend/src/middleware/security.middleware.js) and the input
+      sanitization + React's built-in output escaping.
+
+      script-src 'self': only scripts loaded from this same origin may run -
+      an injected <script>...</script> or onerror="..." payload from stored
+      XSS will simply be refused by the browser, even if it ends up in the DOM.
+
+      NOTE (dev vs prod): Vite's dev server needs 'unsafe-eval' for Hot
+      Module Reload; this meta tag intentionally allows it only via
+      'wasm-unsafe-eval'/websocket connect-src below. If you tighten this
+      further for a production build, drop the dev-only connect-src entries
+      (ws://localhost:5173) and re-test.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; media-src 'self' https: http:; font-src 'self' data:; connect-src 'self' http://localhost:5080 https://localhost:5080 ws://localhost:5173; object-src 'none'; base-uri 'self'; form-action 'self';"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
