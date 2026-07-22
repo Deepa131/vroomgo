@@ -35,10 +35,9 @@ const app = express();
 app.set("trust proxy", 1);
 
 /**
- * -----------------------------------------------------------------------
  * CORS - restricted to a known allowlist (instead of "reflect any origin")
- * -----------------------------------------------------------------------
- * WHAT:  Controls which *browser-based* origins are allowed to read the
+
+* WHAT:  Controls which *browser-based* origins are allowed to read the
  *        response of a cross-origin request (via the
  *        Access-Control-Allow-Origin header).
  * WHY:   The original code did `origin: (origin, cb) => cb(null, true)`,
