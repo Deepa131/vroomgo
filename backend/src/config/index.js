@@ -22,6 +22,14 @@ const OTP_MAX_ATTEMPTS = process.env.OTP_MAX_ATTEMPTS
   ? parseInt(process.env.OTP_MAX_ATTEMPTS, 10)
   : 5;
 
+// This MUST exactly match the scheme+host+port the browser shows in its
+// address bar for the frontend (protocol, host, and port all count for
+// CORS). The frontend's Vite dev server (frontend/vite.config.js) now runs
+// plain HTTP on port 5000, so the default here is "http://localhost:5000".
+// If you switch the frontend back to HTTPS (re-add basicSsl in
+// vite.config.js), update this default - and your .env, if you set one -
+// to "https://localhost:5000" to match, or CORS will reject every request
+// and the frontend will show "Could not load captcha."
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5000";
 
 const RESET_PASSWORD_URL = process.env.RESET_PASSWORD_URL || "";
@@ -44,7 +52,7 @@ const COOKIE_SECRET = process.env.COOKIE_SECRET || "vroomgo_cookie_secret_change
 const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "token";
 
 // 64-char hex (32 byte) key used for AES-256-GCM encryption of the phone field.
-const PHONE_ENC_KEY = process.env.PHONE_ENC_KEY || "";
+const PHONE_ENC_KEY = (process.env.PHONE_ENC_KEY || "").trim();
 
 // Password reuse / expiry policy
 const PASSWORD_HISTORY_LIMIT = process.env.PASSWORD_HISTORY_LIMIT
@@ -105,6 +113,10 @@ const IP_BLOCK_MINUTES = process.env.IP_BLOCK_MINUTES
 // same mailbox the app already sends from) if not set.
 const ALERT_EMAIL = process.env.ALERT_EMAIL || process.env.EMAIL_USER || "";
 
+// Google OAuth login - the OAuth2 client ID used to verify Google Identity
+// Services ID tokens server-side (see controllers/auth.controller.js googleLogin).
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+
 module.exports = {
   PORT,
   NODE_ENV,
@@ -138,4 +150,5 @@ module.exports = {
   IP_FAILURE_WINDOW_MINUTES,
   IP_BLOCK_MINUTES,
   ALERT_EMAIL,
+  GOOGLE_CLIENT_ID,
 };

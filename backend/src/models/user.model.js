@@ -115,6 +115,41 @@ const UserSchema = new Schema(
       type: String,
       select: false,
     },
+
+    // --- Two-Factor Authentication (TOTP / authenticator app) ---
+    // RFC 6238 time-based one-time password, as an alternative to the email
+    // OTP above. When isTotpEnabled is true, login's second factor is
+    // verified against totpSecret (via speakeasy) instead of the emailed
+    // code. totpTempSecret holds a secret that has been generated but not
+    // yet confirmed (see setupTotp/confirmTotp) - it only becomes the real
+    // totpSecret once the user proves they scanned the QR code correctly.
+    totpSecret: {
+      type: String,
+      select: false,
+    },
+    totpTempSecret: {
+      type: String,
+      select: false,
+    },
+    isTotpEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
+    // --- OAuth login (Google) ---
+    // "local" accounts log in with a password; "google" accounts were
+    // created via / linked to Google Sign-In and have no password the user
+    // knows (a random one is generated so the schema's required password
+    // field is still satisfied, but it is never shared with the user).
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
+    googleId: {
+      type: String,
+      select: false,
+    },
   },
   { timestamps: true }
 );
