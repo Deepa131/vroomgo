@@ -1,5 +1,8 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const speakeasy = require("speakeasy");
+const qrcode = require("qrcode");
+const { OAuth2Client } = require("google-auth-library");
 const { UserModel } = require("../models/user.model");
 const { HttpError } = require("../utils/httpError");
 const { sendEmail } = require("../config/email");
@@ -19,7 +22,10 @@ const {
   JWT_EXPIRE,
   MAGIC_LINK_SECRET,
   MAGIC_LINK_EXPIRE_MINUTES,
+  GOOGLE_CLIENT_ID,
 } = require("../config");
+
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Decrypts phone because every response in this file is the account owner
 // looking at their OWN data (register/login/profile) - never someone else's.
@@ -36,6 +42,9 @@ const sanitize = (userDoc) => {
     failedLoginAttempts,
     lockUntil,
     magicLinkNonce,
+    totpSecret,
+    totpTempSecret,
+    googleId,
     ...safe
   } = obj;
   return { ...safe, phone: userDoc.getDecryptedPhone ? userDoc.getDecryptedPhone() : safe.phone };
@@ -234,6 +243,18 @@ const login = async (req, res) => {
       });
     }
 
+    // TOTP-based 2FA (authenticator app): if enabled, the second factor is a
+    // time-based code the user already has, so no email round-trip is needed.
+    if (user.isTotpEnabled) {
+      return res.status(200).json({
+        success: true,
+        requiresOtp: true,
+        method: "totp",
+        message: "Enter the 6-digit code from your authenticator app",
+        otpToken: issueOtpToken(user._id.toString()),
+      });
+    }
+
     const otp = await user.generateOtp();
 
     const html = `
@@ -251,6 +272,7 @@ const login = async (req, res) => {
     return res.status(200).json({
       success: true,
       requiresOtp: true,
+      method: "email",
       message: "A verification code has been sent to your email",
       otpToken: issueOtpToken(user._id.toString()),
     });
@@ -283,10 +305,24 @@ const verifyOtp = async (req, res) => {
       throw new HttpError(401, "Invalid verification session.");
     }
 
-    const user = await UserModel.findById(decoded.id).select("+otpCodeHash +otpExpire +otpAttempts");
+    const user = await UserModel.findById(decoded.id).select(
+      "+otpCodeHash +otpExpire +otpAttempts +totpSecret"
+    );
     if (!user) throw new HttpError(401, "User not found");
 
-    const result = await user.verifyOtp(code);
+    let result;
+    if (user.isTotpEnabled) {
+      const verified = speakeasy.totp.verify({
+        secret: user.totpSecret,
+        encoding: "base32",
+        token: String(code).trim(),
+        window: 1,
+      });
+      result = verified ? { ok: true } : { ok: false, reason: "Incorrect authenticator code" };
+    } else {
+      result = await user.verifyOtp(code);
+    }
+
     if (!result.ok) {
       await logEvent({ action: "OTP_FAILED", userId: user._id, email: user.email, req, details: result.reason });
       await registerIpFailure(req.ip, req);
@@ -332,6 +368,13 @@ const resendOtp = async (req, res) => {
 
     const user = await UserModel.findById(decoded.id);
     if (!user) throw new HttpError(401, "User not found");
+
+    if (user.isTotpEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: "Your account uses an authenticator app. Enter the code shown in your app.",
+      });
+    }
 
     const otp = await user.generateOtp();
     const html = `<p>Your new VroomGo verification code is:</p><h2 style="letter-spacing:4px;">${otp}</h2>`;
@@ -729,6 +772,192 @@ const importProfile = async (req, res) => {
   }
 };
 
+/**
+ * -----------------------------------------------------------------------
+ * TOTP (authenticator app) two-factor setup
+ * -----------------------------------------------------------------------
+ * Setup is two steps so a secret is never trusted for real logins until the
+ * user proves they scanned it correctly:
+ *   1) setupTotp   - generate a fresh secret, store it as totpTempSecret,
+ *                     return it as a QR code (+ manual entry key).
+ *   2) confirmTotp - user submits the code their app is now generating;
+ *                     only once that matches do we promote totpTempSecret
+ *                     to totpSecret and set isTotpEnabled = true.
+ */
+const setupTotp = async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const secret = speakeasy.generateSecret({ name: `VroomGo (${user.email})`, length: 20 });
+
+    user.totpTempSecret = secret.base32;
+    await user.save({ validateBeforeSave: false });
+
+    const qrCodeDataUrl = await qrcode.toDataURL(secret.otpauth_url);
+
+    await logEvent({ action: "TOTP_SETUP_STARTED", userId: user._id, email: user.email, req });
+
+    return res.status(200).json({
+      success: true,
+      secret: secret.base32,
+      qrCode: qrCodeDataUrl,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const confirmTotp = async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ success: false, message: "Code is required" });
+
+    const user = await UserModel.findById(req.user._id).select("+totpTempSecret");
+    if (!user || !user.totpTempSecret) {
+      return res.status(400).json({ success: false, message: "No authenticator setup in progress" });
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user.totpTempSecret,
+      encoding: "base32",
+      token: String(code).trim(),
+      window: 1,
+    });
+
+    if (!verified) {
+      return res.status(400).json({ success: false, message: "Incorrect code. Please try again." });
+    }
+
+    user.totpSecret = user.totpTempSecret;
+    user.totpTempSecret = undefined;
+    user.isTotpEnabled = true;
+    await user.save({ validateBeforeSave: false });
+
+    await logEvent({ action: "TOTP_ENABLED", userId: user._id, email: user.email, req });
+    await sendSecurityAlert(
+      "VroomGo security alert: authenticator app enabled",
+      `Two-factor login via authenticator app was enabled on account ${user.email}.`
+    );
+
+    return res.status(200).json({ success: true, message: "Authenticator app enabled for login" });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+// Requires the current password so a hijacked session (e.g. XSS) can't
+// silently downgrade the account's 2FA on its own.
+const disableTotp = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ success: false, message: "Password is required" });
+
+    const user = await UserModel.findById(req.user._id).select("+password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const validPassword = await user.matchPassword(password);
+    if (!validPassword) {
+      return res.status(401).json({ success: false, message: "Incorrect password" });
+    }
+
+    user.isTotpEnabled = false;
+    user.totpSecret = undefined;
+    user.totpTempSecret = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    await logEvent({ action: "TOTP_DISABLED", userId: user._id, email: user.email, req });
+    await sendSecurityAlert(
+      "VroomGo security alert: authenticator app disabled",
+      `Two-factor login via authenticator app was disabled on account ${user.email}.`
+    );
+
+    return res.status(200).json({ success: true, message: "Authenticator app disabled" });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+/**
+ * -----------------------------------------------------------------------
+ * OAuth login (Google)
+ * -----------------------------------------------------------------------
+ * The frontend uses Google Identity Services to obtain a signed ID token
+ * directly from Google. This handler verifies that token SERVER-SIDE with
+ * Google's own library (never trusts a client-supplied email/name), so it
+ * cannot be spoofed by posting an arbitrary payload. A matching existing
+ * local account is linked to Google rather than duplicated, since Google
+ * has already verified ownership of that same email address.
+ */
+const googleLogin = async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ success: false, message: "Google credential is required" });
+    }
+    if (!GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ success: false, message: "Google login is not configured" });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+      payload = ticket.getPayload();
+    } catch (e) {
+      throw new HttpError(401, "Invalid Google credential");
+    }
+
+    if (!payload || !payload.email || !payload.email_verified) {
+      throw new HttpError(401, "Google account email is not verified");
+    }
+
+    const email = payload.email.toLowerCase();
+    let user = await UserModel.findOne({ email });
+
+    if (user) {
+      if (user.authProvider !== "google") {
+        user.authProvider = "google";
+        user.googleId = payload.sub;
+        await user.save({ validateBeforeSave: false });
+      }
+    } else {
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      user = await UserModel.create({
+        fullName: payload.name || email.split("@")[0],
+        email,
+        password: randomPassword, // never shared with the user; Google is the only login path
+        role: "customer",
+        authProvider: "google",
+        googleId: payload.sub,
+      });
+    }
+
+    setAuthCookie(res, user, req);
+    await logEvent({ action: "LOGIN_SUCCESS", userId: user._id, email: user.email, req, details: "via Google OAuth" });
+    registerIpSuccess(req.ip);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: sanitize(user),
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -744,4 +973,8 @@ module.exports = {
   verifyMagicLink,
   exportProfile,
   importProfile,
+  setupTotp,
+  confirmTotp,
+  disableTotp,
+  googleLogin,
 };

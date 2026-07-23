@@ -95,6 +95,8 @@ app.use("/api/auth/resend-otp", otpLimiter);
 app.use("/api/auth/forgot-password", forgotPasswordLimiter);
 app.use("/api/auth/register", registerLimiter);
 app.use("/api/auth/magic-link/request", magicLinkLimiter);
+app.use("/api/auth/google", loginLimiter);
+app.use("/api/auth/totp/confirm", otpLimiter);
 
 // Public endpoint the frontend calls once on load to get a CSRF token before
 // it can make any POST/PUT/DELETE request (see csrf.middleware.js).
