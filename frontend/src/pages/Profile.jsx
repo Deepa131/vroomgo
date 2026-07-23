@@ -20,6 +20,13 @@ export default function Profile() {
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef(null);
 
+  // --- TOTP (authenticator app) 2FA setup ---
+  const [totpSetup, setTotpSetup] = useState(null); // { secret, qrCode } while pending confirmation
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
+  const [showDisableTotp, setShowDisableTotp] = useState(false);
+  const [disablePassword, setDisablePassword] = useState("");
+
   const handleFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -120,6 +127,62 @@ export default function Profile() {
     }
   };
 
+  const handleStartTotpSetup = async () => {
+    setTotpLoading(true);
+    try {
+      const res = await authApi.totpSetup();
+      if (res.success) {
+        setTotpSetup({ secret: res.secret, qrCode: res.qrCode });
+      } else {
+        toast.error(res.message || "Could not start authenticator setup");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not start authenticator setup");
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const handleConfirmTotp = async (e) => {
+    e.preventDefault();
+    setTotpLoading(true);
+    try {
+      const res = await authApi.totpConfirm(totpCode);
+      if (res.success) {
+        updateUser({ ...user, isTotpEnabled: true });
+        setTotpSetup(null);
+        setTotpCode("");
+        toast.success(res.message || "Authenticator app enabled");
+      } else {
+        toast.error(res.message || "Incorrect code");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Incorrect code");
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const handleDisableTotp = async (e) => {
+    e.preventDefault();
+    setTotpLoading(true);
+    try {
+      const res = await authApi.totpDisable(disablePassword);
+      if (res.success) {
+        updateUser({ ...user, isTotpEnabled: false });
+        setShowDisableTotp(false);
+        setDisablePassword("");
+        toast.success(res.message || "Authenticator app disabled");
+      } else {
+        toast.error(res.message || "Could not disable authenticator app");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Incorrect password");
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-bold text-white">My Profile</h1>
@@ -208,6 +271,80 @@ export default function Profile() {
             onChange={handleImportFile}
           />
         </div>
+      </div>
+
+      <div className="card mt-6 space-y-4 p-6">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-white">Authenticator App (TOTP)</h2>
+          <p className="mt-1 text-sm text-white/50">
+            Use an authenticator app (Google Authenticator, Authy, etc.) to generate your login
+            codes instead of receiving them by email.
+          </p>
+        </div>
+
+        {user.isTotpEnabled ? (
+          showDisableTotp ? (
+            <form onSubmit={handleDisableTotp} className="space-y-3">
+              <div>
+                <label className="label">Confirm your password to disable</label>
+                <input
+                  type="password"
+                  required
+                  className="input"
+                  value={disablePassword}
+                  onChange={(e) => setDisablePassword(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" disabled={totpLoading} className="btn-primary">
+                  {totpLoading ? "Disabling..." : "Disable authenticator app"}
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setShowDisableTotp(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="badge bg-emerald-500/20 text-emerald-400">Enabled</span>
+              <button type="button" className="btn-secondary" onClick={() => setShowDisableTotp(true)}>
+                Disable authenticator app
+              </button>
+            </div>
+          )
+        ) : totpSetup ? (
+          <form onSubmit={handleConfirmTotp} className="space-y-3">
+            <img src={totpSetup.qrCode} alt="Authenticator QR code" className="h-40 w-40 rounded bg-white p-2" />
+            <p className="text-xs text-white/50">
+              Scan this QR code with your authenticator app, or enter this key manually:{" "}
+              <span className="font-mono text-white/70">{totpSetup.secret}</span>
+            </p>
+            <div>
+              <label className="label">Enter the 6-digit code from your app</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                required
+                className="input tracking-[0.5em] text-center"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button type="submit" disabled={totpLoading || totpCode.length !== 6} className="btn-primary">
+                {totpLoading ? "Confirming..." : "Confirm & Enable"}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setTotpSetup(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" onClick={handleStartTotpSetup} disabled={totpLoading} className="btn-secondary">
+            {totpLoading ? "Loading..." : "Set up authenticator app"}
+          </button>
+        )}
       </div>
     </div>
   );

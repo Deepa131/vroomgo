@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn, ShieldCheck, Mail } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 import toast from "react-hot-toast";
 import { authApi } from "../../api/auth";
 import { useAuth } from "../../context/AuthContext";
@@ -25,7 +26,10 @@ export default function Login() {
   // Step 1 (password) vs step 2 (OTP) of the login flow. otpToken is the
   // short-lived, single-purpose token issued by /login once the password
   // checks out - it's what /verify-otp needs, it is NOT an access token.
+  // otpMethod tells us whether step 2's code comes by email or from the
+  // user's authenticator app (TOTP), so the screen can prompt correctly.
   const [otpToken, setOtpToken] = useState(null);
+  const [otpMethod, setOtpMethod] = useState("email");
   const [otpCode, setOtpCode] = useState("");
   const [resending, setResending] = useState(false);
 
@@ -40,10 +44,11 @@ export default function Login() {
     try {
       const res = await authApi.login({ ...form, ...captcha });
       if (res.requiresOtp) {
-        // Password was correct, but we still need the emailed OTP (2FA) before
-        // a session is issued.
+        // Password was correct, but we still need the second factor (email
+        // code or authenticator app code) before a session is issued.
         setOtpToken(res.otpToken);
-        toast.success(res.message || "Check your email for a verification code");
+        setOtpMethod(res.method || "email");
+        toast.success(res.message || "Verification required");
       } else if (res.success) {
         login(res.data);
         toast.success("Welcome back!");
@@ -103,7 +108,30 @@ export default function Login() {
     }
   };
 
+  // OAuth login (Google): Google Identity Services returns a signed ID token
+  // (credential) directly to the browser; we send it to the backend, which
+  // independently verifies it with Google before issuing a session - the
+  // frontend never has to know or check anything about its contents.
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    try {
+      const res = await authApi.googleLogin(credentialResponse.credential);
+      if (res.success) {
+        login(res.data);
+        toast.success("Welcome back!");
+        goToDashboard(res.data);
+      } else {
+        toast.error(res.message || "Google sign-in failed");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Google sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (otpToken) {
+    const isTotp = otpMethod === "totp";
     return (
       <div>
         <div className="flex items-center gap-2 text-ember-500">
@@ -111,7 +139,9 @@ export default function Login() {
           <h1 className="font-display text-2xl font-bold text-white">Verify it's you</h1>
         </div>
         <p className="mt-1 text-sm text-white/50">
-          Enter the 6-digit code we just emailed to {form.email}. It expires in a few minutes.
+          {isTotp
+            ? "Enter the 6-digit code from your authenticator app."
+            : `Enter the 6-digit code we just emailed to ${form.email}. It expires in a few minutes.`}
         </p>
 
         <form onSubmit={handleVerifyOtp} className="mt-8 space-y-4">
@@ -147,14 +177,16 @@ export default function Login() {
           >
             Back to login
           </button>
-          <button
-            type="button"
-            onClick={handleResendOtp}
-            disabled={resending}
-            className="font-semibold text-ember-500 hover:underline disabled:opacity-50"
-          >
-            {resending ? "Sending..." : "Resend code"}
-          </button>
+          {!isTotp && (
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={resending}
+              className="font-semibold text-ember-500 hover:underline disabled:opacity-50"
+            >
+              {resending ? "Sending..." : "Resend code"}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -212,6 +244,21 @@ export default function Login() {
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
+
+      <div className="mt-4 flex items-center gap-3">
+        <div className="h-px flex-1 bg-white/10" />
+        <span className="text-xs uppercase tracking-wide text-white/30">Or continue with</span>
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
+
+      <div className="mt-4 flex justify-center">
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => toast.error("Google sign-in failed")}
+          theme="filled_black"
+          shape="pill"
+        />
+      </div>
 
       <div className="mt-4 text-center">
         <Link

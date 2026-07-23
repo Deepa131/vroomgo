@@ -65,4 +65,20 @@ export const authApi = {
     });
     return data;
   },
+  googleLogin: async (credential) => {
+    const { data } = await axiosInstance.post("/auth/google", { credential });
+    return data;
+  },
+  totpSetup: async () => {
+    const { data } = await axiosInstance.post("/auth/totp/setup");
+    return data;
+  },
+  totpConfirm: async (code) => {
+    const { data } = await axiosInstance.post("/auth/totp/confirm", { code });
+    return data;
+  },
+  totpDisable: async (password) => {
+    const { data } = await axiosInstance.post("/auth/totp/disable", { password });
+    return data;
+  },
 };
