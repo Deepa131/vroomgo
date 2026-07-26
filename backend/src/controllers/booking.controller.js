@@ -3,12 +3,17 @@ const { VehicleModel } = require("../models/vehicle.model");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
+// The customer who made the booking, or an admin, may view/edit/delete it.
+// (Vendors reach their own bookings through getVendorBookings/updateStatus,
+// not through these customer-owned single-record routes.)
+const isOwnerOrAdmin = (booking, user) =>
+  user.role === "admin" || booking.customerId === user._id.toString();
+
 const createBooking = async (req, res) => {
   try {
     const {
       vehicleId,
       vendorId,
-      customerId,
       customerName,
       customerEmail,
       customerPhone,
@@ -19,10 +24,14 @@ const createBooking = async (req, res) => {
       message,
     } = req.body;
 
+    // Never trust a client-supplied identity field — always derive it from the
+    // authenticated session to prevent a user from creating a booking under
+    // someone else's identity (CWE-915: Mass Assignment).
+    const customerId = req.user.id;
+
     if (
       !vehicleId ||
       !vendorId ||
-      !customerId ||
       !customerName ||
       !customerEmail ||
       !customerPhone ||
@@ -80,6 +89,7 @@ const createBooking = async (req, res) => {
 
     return res.status(201).json({ success: true, message: "Booking request submitted successfully", data: booking });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to create booking" });
   }
 };
@@ -119,6 +129,7 @@ const getVendorBookings = async (req, res) => {
 
     return res.status(200).json({ success: true, data });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch bookings" });
   }
 };
@@ -135,6 +146,7 @@ const getCustomerBookings = async (req, res) => {
 
     return res.status(200).json({ success: true, data });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch bookings" });
   }
 };
@@ -144,8 +156,15 @@ const getBookingById = async (req, res) => {
     const { bookingId } = req.params;
     const booking = await BookingModel.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
-    return res.status(200).json({ success: true, data: booking });
+
+    if (!isOwnerOrAdmin(booking, req.user)) {
+      return res.status(403).json({ success: false, message: "Not authorized to view this booking" });
+    }
+
+    const [data] = await attachVehicleInfo([booking]);
+    return res.status(200).json({ success: true, data });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to fetch booking" });
   }
 };
@@ -164,6 +183,7 @@ const updateBookingStatus = async (req, res) => {
 
     return res.status(200).json({ success: true, message: "Booking status updated", data: booking });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to update booking" });
   }
 };
@@ -186,6 +206,14 @@ const updateBooking = async (req, res) => {
     const existing = await BookingModel.findById(bookingId);
     if (!existing) return res.status(404).json({ success: false, message: "Booking not found" });
 
+    if (!isOwnerOrAdmin(existing, req.user)) {
+      return res.status(403).json({ success: false, message: "Not authorized to edit this booking" });
+    }
+
+    if (!["pending", "confirmed"].includes(existing.status)) {
+      return res.status(400).json({ success: false, message: `Cannot edit a booking that is ${existing.status}` });
+    }
+
     const vehicle = await VehicleModel.findById(existing.vehicleId);
     const totalDays = Math.max(1, Math.ceil((end - start) / MS_PER_DAY));
     const totalPrice = vehicle ? totalDays * vehicle.dailyRate : existing.totalPrice;
@@ -203,8 +231,10 @@ const updateBooking = async (req, res) => {
       { new: true }
     );
 
-    return res.status(200).json({ success: true, message: "Booking updated successfully", data: booking });
+    const [data] = await attachVehicleInfo([booking]);
+    return res.status(200).json({ success: true, message: "Booking updated successfully", data });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to update booking" });
   }
 };
@@ -212,10 +242,17 @@ const updateBooking = async (req, res) => {
 const cancelBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const booking = await BookingModel.findByIdAndDelete(bookingId);
+    const booking = await BookingModel.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+    if (!isOwnerOrAdmin(booking, req.user)) {
+      return res.status(403).json({ success: false, message: "Not authorized to delete this booking" });
+    }
+
+    await BookingModel.findByIdAndDelete(bookingId);
     return res.status(200).json({ success: true, message: "Booking deleted successfully" });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Failed to delete booking" });
   }
 };
