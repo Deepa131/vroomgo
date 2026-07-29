@@ -36,7 +36,10 @@ const UserSchema = new Schema(
       minlength: 8,
       select: false,
     },
-    // Stored as AES-256-GCM ciphertext ("iv:tag:cipher"), never in plaintext.
+    // ⚠️  IMPORTANT: Phone is ENCRYPTED (not hashed) with AES-256-GCM
+    // Stored as ciphertext ("iv:tag:cipher"), never in plaintext.
+    // MUST DECRYPT to retrieve original value - encryption is reversible.
+    // Never use bcrypt or any one-way hash for phone numbers.
     // Encrypted automatically in the pre-save hook below; decrypted only via
     // getDecryptedPhone(), which controllers call solely for the profile owner.
     phone: { type: String, trim: true, default: "" },

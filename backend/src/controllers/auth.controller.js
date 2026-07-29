@@ -29,6 +29,11 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Decrypts phone because every response in this file is the account owner
 // looking at their OWN data (register/login/profile) - never someone else's.
+// 
+// ⚠️  CRITICAL SECURITY NOTE:
+// Phone is ENCRYPTED with AES-256-GCM (reversible), NOT hashed (one-way).
+// We MUST decrypt it because users need their actual phone number to use the app.
+// Only hash password; only encrypt PII like phone numbers.
 const sanitize = (userDoc) => {
   const obj = userDoc.toObject ? userDoc.toObject() : userDoc;
   const {
