@@ -26,13 +26,14 @@ const vehicleRoutes = require("./routes/vehicle.route");
 const vehicleCategoryRoutes = require("./routes/vehicleCategory.route");
 const bookingRoutes = require("./routes/booking.route");
 const favoriteRoutes = require("./routes/favorite.route");
+const locationRoutes = require("./routes/location.route"); // <-- added
 
 const app = express();
 
 // Behind a reverse proxy (Nginx/Heroku/Render/etc.) this lets Express read
 // the real client IP/protocol from X-Forwarded-* headers - needed for
 // rate-limiting and for secure cookies to behave correctly behind TLS-terminating proxies.
-app.set("trust proxy", 1);
+app.set("trust proxy", false);
 
 /**
  * CORS - restricted to a known allowlist (instead of "reflect any origin")
@@ -115,6 +116,7 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/vehicle-categories", vehicleCategoryRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/favorites", favoriteRoutes);
+app.use("/api/location", locationRoutes); // <-- added
 
 app.get("/", (req, res) => {
   return res.status(200).json({ success: true, message: "Welcome to the VroomGo API" });

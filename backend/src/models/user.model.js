@@ -40,8 +40,9 @@ const UserSchema = new Schema(
     // Stored as ciphertext ("iv:tag:cipher"), never in plaintext.
     // MUST DECRYPT to retrieve original value - encryption is reversible.
     // Never use bcrypt or any one-way hash for phone numbers.
-    // Encrypted automatically in the pre-save hook below; decrypted only via
-    // getDecryptedPhone(), which controllers call solely for the profile owner.
+    // Encrypted automatically in the pre-save hook below. Decrypted via
+    // getDecryptedPhone() for the profile owner, or via the shared
+    // decrypt() util in admin.controller.js's sanitize() for admin listings.
     phone: { type: String, trim: true, default: "" },
     role: {
       type: String,
@@ -183,8 +184,10 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Returns the plaintext phone number. Only ever call this for the account
-// owner (e.g. their own profile/login response) - never for admin listings.
+// Returns the plaintext phone number for the account owner's own
+// profile/login response. Admin listings decrypt separately via the shared
+// decrypt() util (see admin.controller.js) since they work with plain
+// objects (post toObject()), not model instances with this method.
 UserSchema.methods.getDecryptedPhone = function () {
   try {
     return decrypt(this.phone);

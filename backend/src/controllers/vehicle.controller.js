@@ -82,6 +82,7 @@ const createVehicle = async (req, res) => {
 
     return res.status(201).json({ success: true, data: vehicle });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -134,6 +135,7 @@ const getAllVehicles = async (req, res) => {
       data: vehicles,
     });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -148,6 +150,7 @@ const getVehicleById = async (req, res) => {
 
     return res.status(200).json({ success: true, data: vehicle });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -161,6 +164,7 @@ const getVehiclesByVendor = async (req, res) => {
 
     return res.status(200).json({ success: true, count: vehicles.length, data: vehicles });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -196,6 +200,7 @@ const updateVehicle = async (req, res) => {
 
     return res.status(200).json({ success: true, data: vehicle });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -221,6 +226,7 @@ const deleteVehicle = async (req, res) => {
 
     return res.status(200).json({ success: true, message: "Vehicle deleted successfully" });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -228,8 +234,16 @@ const deleteVehicle = async (req, res) => {
 const uploadVehicleImage = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: "Please upload an image file" });
-    return res.status(200).json({ success: true, data: req.file.filename, message: "Image uploaded successfully" });
+    // Must match the "/public/" prefix that assertSafeMediaList (utils/urlSafety.js)
+    // treats as an already-trusted, server-owned path - a bare filename fails
+    // that check and gets rejected as an invalid external URL on save.
+    return res.status(200).json({
+      success: true,
+      data: `/public/vehicle_images/${req.file.filename}`,
+      message: "Image uploaded successfully",
+    });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -237,8 +251,13 @@ const uploadVehicleImage = async (req, res) => {
 const uploadVehicleVideo = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: "Please upload a video file" });
-    return res.status(200).json({ success: true, data: req.file.filename, message: "Video uploaded successfully" });
+    return res.status(200).json({
+      success: true,
+      data: `/public/vehicle_videos/${req.file.filename}`,
+      message: "Video uploaded successfully",
+    });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -277,6 +296,7 @@ const adminGetAllVehicles = async (req, res) => {
       data: vehicles,
     });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -300,6 +320,7 @@ const adminUpdateVehicleStatus = async (req, res) => {
 
     return res.status(200).json({ success: true, data: vehicle, message: `Vehicle status updated to ${approvalStatus}` });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
@@ -319,6 +340,7 @@ const adminDeleteVehicle = async (req, res) => {
 
     return res.status(200).json({ success: true, message: "Vehicle deleted successfully by admin" });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };

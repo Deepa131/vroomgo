@@ -14,7 +14,7 @@ const { NODE_ENV } = require("../config");
  *   "logged in" to our server even though the real user never clicked
  *   anything on our site.
  *
- * IMPORTANT NUANCE FOR THIS APP (teach this in your report):
+ * IMPORTANT NUANCE FOR THIS APP :
  *   VroomGo authenticates API calls with a JWT sent in the
  *   `Authorization: Bearer <token>` HEADER (see src/api/axios.js on the
  *   frontend), not with a session cookie. Browsers do NOT automatically

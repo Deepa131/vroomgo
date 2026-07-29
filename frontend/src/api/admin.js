@@ -45,16 +45,4 @@ export const adminApi = {
     const { data } = await axiosInstance.get("/admin/audit-logs", { params });
     return data;
   },
-  getIpAccessList: async () => {
-    const { data } = await axiosInstance.get("/admin/ip-access");
-    return data;
-  },
-  upsertIpAccess: async (payload) => {
-    const { data } = await axiosInstance.post("/admin/ip-access", payload);
-    return data;
-  },
-  deleteIpAccess: async (id) => {
-    const { data } = await axiosInstance.delete(`/admin/ip-access/${id}`);
-    return data;
-  },
 };

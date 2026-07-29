@@ -44,7 +44,7 @@ export default function ManageVehicles() {
     try {
       await adminApi.deleteVehicle(id);
       toast.success("Vehicle deleted");
-      setVehicles(vehicles.filter((v) => v._id !== id));
+      setVehicles(vehicles.filter((v) => v.id !== id));
     } catch (e) {
       toast.error("Could not delete vehicle");
     }
@@ -81,7 +81,7 @@ export default function ManageVehicles() {
           </thead>
           <tbody>
             {vehicles.map((v) => (
-              <tr key={v._id} className="border-t border-white/10">
+              <tr key={v.id} className="border-t border-white/10">
                 <td className="flex items-center gap-3 px-4 py-3">
                   <img
                     src={
@@ -99,25 +99,25 @@ export default function ManageVehicles() {
                 <td className="px-4 py-3"><StatusBadge status={v.approvalStatus} /></td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
-                    <Link to={`/vehicles/${v._id}`} className="rounded-lg bg-white/5 p-2 text-white/60 hover:bg-white/10">
+                    <Link to={`/vehicles/${v.id}`} className="rounded-lg bg-white/5 p-2 text-white/60 hover:bg-white/10">
                       <Eye size={15} />
                     </Link>
                     {v.approvalStatus !== "approved" && (
-                      <button onClick={() => updateStatus(v._id, "approved")} className="rounded-lg bg-teal-500/15 p-2 text-teal-400 hover:bg-teal-500/25" title="Approve">
+                      <button onClick={() => updateStatus(v.id, "approved")} className="rounded-lg bg-teal-500/15 p-2 text-teal-400 hover:bg-teal-500/25" title="Approve">
                         <Check size={15} />
                       </button>
                     )}
                     {v.approvalStatus !== "rejected" && (
-                      <button onClick={() => updateStatus(v._id, "rejected")} className="rounded-lg bg-amber-500/15 p-2 text-amber-400 hover:bg-amber-500/25" title="Reject">
+                      <button onClick={() => updateStatus(v.id, "rejected")} className="rounded-lg bg-amber-500/15 p-2 text-amber-400 hover:bg-amber-500/25" title="Reject">
                         <X size={15} />
                       </button>
                     )}
                     {v.approvalStatus !== "archived" && (
-                      <button onClick={() => updateStatus(v._id, "archived")} className="rounded-lg bg-white/10 p-2 text-white/50 hover:bg-white/20" title="Archive">
+                      <button onClick={() => updateStatus(v.id, "archived")} className="rounded-lg bg-white/10 p-2 text-white/50 hover:bg-white/20" title="Archive">
                         <Archive size={15} />
                       </button>
                     )}
-                    <button onClick={() => handleDelete(v._id)} className="rounded-lg bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20" title="Delete">
+                    <button onClick={() => handleDelete(v.id)} className="rounded-lg bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20" title="Delete">
                       <Trash2 size={15} />
                     </button>
                   </div>

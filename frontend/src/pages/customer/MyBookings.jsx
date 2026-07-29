@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Calendar, X } from "lucide-react";
+import { MapPin, Calendar, X, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import { bookingApi } from "../../api/booking";
 import { getMediaUrl } from "../../api/axios";
@@ -100,6 +100,13 @@ export default function MyBookings() {
                   <p className="text-xs text-white/40">{b.totalDays} day{b.totalDays > 1 ? "s" : ""}</p>
                 </div>
                 <StatusBadge status={b.status} />
+                <Link
+                  to={`/customer/bookings/${b._id}`}
+                  className="rounded-lg bg-white/5 p-2 text-white/60 hover:bg-white/10"
+                  title="View booking"
+                >
+                  <Eye size={16} />
+                </Link>
                 {["pending", "confirmed"].includes(b.status) && (
                   <button
                     onClick={() => handleCancel(b._id)}

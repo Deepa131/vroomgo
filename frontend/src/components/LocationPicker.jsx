@@ -65,6 +65,14 @@ export default function LocationPicker({
     if (defaultLocation.address) {
       setConfirmedAddress(defaultLocation.address);
       setDraftAddress(defaultLocation.address);
+    } else if (defaultLocation.latitude && defaultLocation.longitude) {
+      // Fetch address for default location if not provided
+      reverseGeocode(defaultLocation.latitude, defaultLocation.longitude).then((addr) => {
+        if (addr) {
+          setConfirmedAddress(addr);
+          setDraftAddress(addr);
+        }
+      }).catch(err => console.error("Error fetching default location address:", err));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultLocation]);
@@ -146,9 +154,16 @@ export default function LocationPicker({
     }
 
     let address = draftAddress;
+    
+    // If no address yet, fetch it before confirming
     if (!address) {
-      address = await reverseGeocode(draftLocation.latitude, draftLocation.longitude);
-      setDraftAddress(address);
+      try {
+        address = await reverseGeocode(draftLocation.latitude, draftLocation.longitude);
+        setDraftAddress(address);
+      } catch (error) {
+        console.error("Error fetching address on confirm:", error);
+        address = `${draftLocation.latitude.toFixed(4)}, ${draftLocation.longitude.toFixed(4)}`;
+      }
     }
 
     setConfirmedLocation(draftLocation);
@@ -194,7 +209,8 @@ export default function LocationPicker({
     try {
       const result = await geocodeAddress(searchQuery.trim());
       if (!result) {
-        setSearchError("No results found.");
+        setSearchError("Location not found. Try a different search term or click on the map.");
+        setSearching(false);
         return;
       }
       setSearchError(null);
@@ -205,8 +221,10 @@ export default function LocationPicker({
         address: nextAddress,
       });
       setDraftAddress(nextAddress);
+      toast.success("Found: " + nextAddress);
     } catch (error) {
-      setSearchError(error?.message || "Search failed.");
+      console.error("Search error:", error);
+      setSearchError("Search failed. Try again or use the map.");
     } finally {
       setSearching(false);
     }
@@ -257,14 +275,24 @@ export default function LocationPicker({
                 <div className="flex gap-2">
                   <input
                     value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                      // Clear error when user types again
+                      if (searchError) setSearchError(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !searching) {
+                        event.preventDefault();
+                        handleSearch();
+                      }
+                    }}
                     type="text"
-                    placeholder="Search for an address..."
+                    placeholder="Search for an address or landmark..."
                     className="input flex-1"
                   />
                   <button
                     onClick={handleSearch}
-                    disabled={searching}
+                    disabled={searching || !searchQuery.trim()}
                     className="btn-primary shrink-0 text-sm disabled:opacity-60"
                   >
                     {searching ? "Searching..." : "Search"}
@@ -280,12 +308,19 @@ export default function LocationPicker({
                 </div>
               )}
 
-              {!loading && draftLocation && draftAddress && (
+              {!loading && draftLocation && (
                 <div className="flex items-center gap-2 rounded-lg border border-ember-500/30 bg-ember-500/10 px-4 py-3">
                   <MapPin size={18} className="shrink-0 text-ember-500" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-ember-300">Selected Location</p>
-                    <p className="truncate text-xs text-white/60">{draftAddress}</p>
+                    {draftAddress ? (
+                      <p className="break-words text-xs text-white/60">{draftAddress}</p>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Loader2 size={14} className="animate-spin text-ember-500" />
+                        <p className="text-xs text-white/60">Fetching location name...</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -297,14 +332,32 @@ export default function LocationPicker({
                   onSelect={async (lat, lng) => {
                     const loc = { latitude: lat, longitude: lng };
                     setDraftLocation(loc);
-                    const address = await reverseGeocode(lat, lng);
-                    setDraftAddress(address);
+                    
+                    // Fetch address - let it take full time (up to 12s)
+                    try {
+                      const address = await reverseGeocode(lat, lng);
+                      if (address) {
+                        setDraftAddress(address);
+                      }
+                    } catch (error) {
+                      console.error("Error fetching address:", error);
+                      setDraftAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                    }
                   }}
                   onDragEnd={async (lat, lng) => {
                     const loc = { latitude: lat, longitude: lng };
                     setDraftLocation(loc);
-                    const address = await reverseGeocode(lat, lng);
-                    setDraftAddress(address);
+                    
+                    // Fetch address - let it take full time (up to 12s)
+                    try {
+                      const address = await reverseGeocode(lat, lng);
+                      if (address) {
+                        setDraftAddress(address);
+                      }
+                    } catch (error) {
+                      console.error("Error fetching address:", error);
+                      setDraftAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                    }
                   }}
                 />
               </div>

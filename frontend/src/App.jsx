@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { LayoutDashboard, Car, CalendarCheck, Heart, User, Users, Tags, ShieldAlert, ShieldOff } from "lucide-react";
+import { LayoutDashboard, Car, CalendarCheck, Heart, User, Users, Tags, ShieldAlert } from "lucide-react";
 
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -15,6 +15,7 @@ import VehicleDetail from "./pages/VehicleDetail";
 import BookVehicle from "./pages/BookVehicle";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import BookingDetail from "./pages/customer/BookingDetail";
 
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -38,7 +39,6 @@ import ManageUsers from "./pages/admin/ManageUsers";
 import ManageVehicles from "./pages/admin/ManageVehicles";
 import ManageCategories from "./pages/admin/ManageCategories";
 import ManageAuditLogs from "./pages/admin/ManageAuditLogs";
-import ManageIpAccess from "./pages/admin/ManageIpAccess";
 
 const customerNavItems = [
   { to: "/customer/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -60,7 +60,6 @@ const adminNavItems = [
   { to: "/admin/vehicles", label: "Vehicles", icon: Car },
   { to: "/admin/categories", label: "Categories", icon: Tags },
   { to: "/admin/audit-logs", label: "Audit Trail", icon: ShieldAlert },
-  { to: "/admin/ip-access", label: "IP Access", icon: ShieldOff },
   { to: "/admin/profile", label: "Profile", icon: User },
 ];
 
@@ -111,6 +110,7 @@ export default function App() {
           >
             <Route path="dashboard" element={<CustomerDashboard />} />
             <Route path="bookings" element={<MyBookings />} />
+            <Route path="bookings/:id" element={<BookingDetail />} />
             <Route path="favorites" element={<Favorites />} />
             <Route path="profile" element={<Profile />} />
           </Route>
@@ -146,7 +146,6 @@ export default function App() {
             <Route path="vehicles" element={<ManageVehicles />} />
             <Route path="categories" element={<ManageCategories />} />
             <Route path="audit-logs" element={<ManageAuditLogs />} />
-            <Route path="ip-access" element={<ManageIpAccess />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 

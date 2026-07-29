@@ -2,6 +2,8 @@
  * Location Service for handling geolocation, permissions, and distance calculations
  */
 
+import axiosInstance from "../api/axios";
+
 const LOCATION_PERMISSION_KEY = "vroomgo_location_permission_granted";
 const LOCATION_PERMISSION_MODE_KEY = "vroomgo_location_permission_mode"; // 'always', 'just_this_time', or null
 const USER_LOCATION_KEY = "vroomgo_user_current_location";
@@ -177,80 +179,49 @@ export const cacheVehicleLocation = (vehicleId, location) => {
   localStorage.setItem(`${VEHICLE_LOCATION_PREFIX}${vehicleId}`, JSON.stringify(location));
 };
 
+// Reverse geocode / geocode requests go through our own backend (see
+// backend/src/controllers/location.controller.js) instead of calling
+// Nominatim directly from the browser. Nominatim's usage policy requires a
+// real identifying User-Agent, which browsers won't let a page set - calling
+// it client-side meant requests looked anonymous and got throttled/blocked
+// in production, silently degrading "Selected Location" to raw lat/lng
+// numbers instead of a place name.
 /**
- * Reverse geocode coordinates to address (OpenStreetMap Nominatim)
+ * Reverse geocode coordinates to a human-readable place name.
+ * Returns a fallback "lat, lng" string ONLY as a last resort (e.g. network
+ * failure), so callers can still store/display something, but callers that
+ * want to distinguish "resolved name" from "coordinates only" should treat
+ * any string matching `^-?\d+\.\d+, -?\d+\.\d+$` as an unresolved fallback.
  */
 export const reverseGeocode = async (latitude, longitude) => {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const { data } = await axiosInstance.get("/location/reverse-geocode", {
+      params: { lat: latitude, lon: longitude },
+      timeout: 10000,
+    });
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
-      {
-        headers: {
-          Accept: "application/json",
-          "Accept-Language": "en",
-          "User-Agent": "vroomgo-app",
-        },
-        signal: controller.signal,
-      }
-    );
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`Reverse geocoding failed with status ${response.status}`);
-      return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    if (data.address) {
+      return data.address;
     }
 
-    const data = await response.json();
-    if (data && data.display_name) {
-      return data.display_name;
-    }
     return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
   } catch (error) {
-    console.warn("Reverse geocoding error, using coordinates:", error);
+    console.warn("Reverse geocoding error:", error);
     return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
   }
 };
 
 /**
- * Geocode address to coordinates (OpenStreetMap Nominatim)
+ * Geocode a search string to coordinates + address.
  */
 export const geocodeAddress = async (address) => {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const { data } = await axiosInstance.get("/location/geocode", {
+      params: { q: address },
+      timeout: 10000,
+    });
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`,
-      {
-        headers: {
-          Accept: "application/json",
-          "Accept-Language": "en",
-          "User-Agent": "vroomgo-app",
-        },
-        signal: controller.signal,
-      }
-    );
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`Geocoding failed with status ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const lat = Number(data[0].lat);
-      const lng = Number(data[0].lon);
-      return {
-        latitude: lat,
-        longitude: lng,
-        address: data[0].display_name,
-      };
-    }
-    return null;
+    return data.result || null;
   } catch (error) {
     console.warn("Geocoding error:", error);
     return null;

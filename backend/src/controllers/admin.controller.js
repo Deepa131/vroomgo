@@ -6,10 +6,25 @@ const { IpAccessModel } = require("../models/ipAccess.model");
 const { invalidateManualCache } = require("../utils/ipAccessControl");
 const { subscribeToAlerts } = require("../utils/alerts");
 const { logEvent } = require("../utils/audit");
+const { decrypt } = require("../utils/crypto");
 
+// Admin endpoints are the one place other than the account owner's own
+// profile that's allowed to see a real phone number, so we decrypt it here
+// rather than returning the AES-GCM ciphertext ("iv:tag:cipher") that's
+// stored in the DB - that ciphertext isn't a "hash" (nothing was hashed,
+// it's reversible encryption), but showing it in the admin table is just as
+// useless to an admin as a hash would be. Passwords stay one-way hashed and
+// are still stripped out below; they're never decryptable and never sent.
 const sanitize = (userDoc) => {
   const obj = userDoc.toObject ? userDoc.toObject() : userDoc;
   const { password, resetPasswordToken, resetPasswordExpire, ...safe } = obj;
+  if (safe.phone) {
+    try {
+      safe.phone = decrypt(safe.phone);
+    } catch (err) {
+      safe.phone = "";
+    }
+  }
   return safe;
 };
 

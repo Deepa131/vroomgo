@@ -257,6 +257,7 @@ export default function Login() {
           onError={() => toast.error("Google sign-in failed")}
           theme="filled_black"
           shape="pill"
+          locale="en"
         />
       </div>
 
