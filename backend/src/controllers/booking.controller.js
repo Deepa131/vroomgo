@@ -3,9 +3,6 @@ const { VehicleModel } = require("../models/vehicle.model");
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-// The customer who made the booking, or an admin, may view/edit/delete it.
-// (Vendors reach their own bookings through getVendorBookings/updateStatus,
-// not through these customer-owned single-record routes.)
 const isOwnerOrAdmin = (booking, user) =>
   user.role === "admin" || booking.customerId === user._id.toString();
 
@@ -24,9 +21,6 @@ const createBooking = async (req, res) => {
       message,
     } = req.body;
 
-    // Never trust a client-supplied identity field — always derive it from the
-    // authenticated session to prevent a user from creating a booking under
-    // someone else's identity (CWE-915: Mass Assignment).
     const customerId = req.user.id;
 
     if (
