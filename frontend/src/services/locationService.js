@@ -18,44 +18,29 @@ export const checkLocationPermission = (userId) => {
   return localStorage.getItem(key) === "true";
 };
 
-/**
- * Grant location permission (store in localStorage)
- */
 export const grantLocationPermission = (userId) => {
   if (typeof window === "undefined") return;
   const key = userId ? `${LOCATION_PERMISSION_KEY}_${userId}` : LOCATION_PERMISSION_KEY;
   localStorage.setItem(key, "true");
 };
 
-/**
- * Set location permission mode ('always' or 'just_this_time')
- */
 export const setLocationPermissionMode = (mode) => {
   if (typeof window === "undefined") return;
   localStorage.setItem(LOCATION_PERMISSION_MODE_KEY, mode);
   localStorage.setItem(LOCATION_PERMISSION_KEY, "true");
 };
 
-/**
- * Get location permission mode
- */
 export const getLocationPermissionMode = () => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(LOCATION_PERMISSION_MODE_KEY) || null;
 };
 
-/**
- * Check if should show location permission prompt
- */
 export const shouldShowPermissionPrompt = () => {
   if (typeof window === "undefined") return true;
   const mode = getLocationPermissionMode();
   return mode === null || mode === "just_this_time";
 };
 
-/**
- * Clear just-this-time permission (called when page unloads or on refresh)
- */
 export const clearJustThisTimePermission = () => {
   if (typeof window === "undefined") return;
   const mode = getLocationPermissionMode();
@@ -122,9 +107,6 @@ export const getCurrentLocation = () => {
   });
 };
 
-/**
- * Get user's cached location
- */
 export const getCachedUserLocation = () => {
   if (typeof window === "undefined") return null;
   const cached = localStorage.getItem(USER_LOCATION_KEY);
@@ -139,10 +121,6 @@ export const cacheUserLocation = (location) => {
   localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(location));
 };
 
-/**
- * Calculate distance between two coordinates using Haversine formula
- * Returns distance in kilometers
- */
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -162,9 +140,6 @@ export const getOsmDirectionsUrl = (startLat, startLon, endLat, endLon) => {
   return `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${startLat}%2C${startLon}%3B${endLat}%2C${endLon}`;
 };
 
-/**
- * Get cached vehicle location
- */
 export const getCachedVehicleLocation = (vehicleId) => {
   if (typeof window === "undefined") return null;
   const cached = localStorage.getItem(`${VEHICLE_LOCATION_PREFIX}${vehicleId}`);
@@ -179,20 +154,6 @@ export const cacheVehicleLocation = (vehicleId, location) => {
   localStorage.setItem(`${VEHICLE_LOCATION_PREFIX}${vehicleId}`, JSON.stringify(location));
 };
 
-// Reverse geocode / geocode requests go through our own backend (see
-// backend/src/controllers/location.controller.js) instead of calling
-// Nominatim directly from the browser. Nominatim's usage policy requires a
-// real identifying User-Agent, which browsers won't let a page set - calling
-// it client-side meant requests looked anonymous and got throttled/blocked
-// in production, silently degrading "Selected Location" to raw lat/lng
-// numbers instead of a place name.
-/**
- * Reverse geocode coordinates to a human-readable place name.
- * Returns a fallback "lat, lng" string ONLY as a last resort (e.g. network
- * failure), so callers can still store/display something, but callers that
- * want to distinguish "resolved name" from "coordinates only" should treat
- * any string matching `^-?\d+\.\d+, -?\d+\.\d+$` as an unresolved fallback.
- */
 export const reverseGeocode = async (latitude, longitude) => {
   try {
     const { data } = await axiosInstance.get("/location/reverse-geocode", {

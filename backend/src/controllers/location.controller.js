@@ -1,15 +1,5 @@
 /**
  * Proxies geocoding requests to OpenStreetMap's Nominatim service.
- *
- * WHY THIS EXISTS: the frontend used to call nominatim.openstreetmap.org
- * directly from the browser. Nominatim's usage policy requires a real
- * identifying User-Agent/Referer on every request, but browsers silently
- * ignore any User-Agent a page tries to set - so those requests looked
- * anonymous, got throttled/blocked in production, and the UI quietly fell
- * back to showing raw "lat, lng" numbers instead of a place name. Routing
- * the request through our own backend lets us send a proper identifying
- * User-Agent and centralizes error handling so failures are visible in
- * server logs instead of silently degrading the UI.
  */
 
 const NOMINATIM_BASE_URL = "https://nominatim.openstreetmap.org";
@@ -32,10 +22,6 @@ const fetchWithTimeout = async (url, timeoutMs = 8000) => {
   }
 };
 
-/**
- * Build a short, human-readable place name from a Nominatim address object,
- * preferring a landmark/POI name over raw coordinates.
- */
 const buildLocationName = (data) => {
   const addr = data?.address || {};
   const locationName = [];
@@ -69,13 +55,6 @@ const buildLocationName = (data) => {
   return null;
 };
 
-/**
- * GET /api/location/reverse-geocode?lat=..&lon=..
- * Returns { success, address, raw } where `address` is a human-readable
- * place name, or null if none could be resolved (caller should decide how
- * to present that, e.g. show coordinates with a "location name unavailable"
- * hint rather than silently passing off coordinates as an address).
- */
 const reverseGeocode = async (req, res) => {
   const lat = Number(req.query.lat);
   const lon = Number(req.query.lon);
@@ -102,10 +81,6 @@ const reverseGeocode = async (req, res) => {
   }
 };
 
-/**
- * GET /api/location/geocode?q=<search text>
- * Returns { success, result: { latitude, longitude, address } | null }
- */
 const geocodeAddress = async (req, res) => {
   const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
 

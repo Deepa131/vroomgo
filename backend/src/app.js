@@ -37,20 +37,6 @@ app.set("trust proxy", false);
 
 /**
  * CORS - restricted to a known allowlist (instead of "reflect any origin")
-
-* WHAT:  Controls which *browser-based* origins are allowed to read the
- *        response of a cross-origin request (via the
- *        Access-Control-Allow-Origin header).
- * WHY:   The original code did `origin: (origin, cb) => cb(null, true)`,
- *        which reflects and allows EVERY origin - combined with
- *        `credentials: true` that is a serious misconfiguration: it tells
- *        browsers "any website may make credentialed requests to this API
- *        and read the response", which defeats same-origin protections for
- *        any user who's logged in and visits a malicious page.
- * HOW:   We only allow origins explicitly listed in ALLOWED_ORIGINS (see
- *        .env). Requests with no Origin header (e.g. curl, mobile apps,
- *        server-to-server) are allowed through since the Origin check only
- *        matters for browsers.
  */
 const corsOptions = {
   origin: (origin, callback) => {
@@ -67,10 +53,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// System-wide IP block/allow list (see utils/ipAccessControl.js). Runs
-// before everything else so a blocked IP is rejected as cheaply as
-// possible, independently of the per-account lockout and per-route rate
-// limiters below.
 app.use(ipGate);
 
 // Security response headers + CSP (see security.middleware.js for the "why")
@@ -82,8 +64,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser(COOKIE_SECRET));
 
-// Strip Mongo operator injection ($gt, $where, ".") and then strip HTML/script
-// payloads out of every string field, for every request from here on.
 app.use(sanitizeMongo);
 app.use(sanitizeXss);
 
