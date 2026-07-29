@@ -66,8 +66,9 @@ Beyond the core password hashing, JWT sessions and RBAC, VroomGo implements:
 - **CAPTCHA** — a self-hosted SVG image captcha (no third-party service/API key required)
   guards registration, login, forgot-password and the magic-link request endpoint.
 - **System-wide IP-based brute-force protection** — an automatic sliding-window lockout blocks
-  an IP after repeated failed logins/OTP attempts, independent of per-account lockout. Admins
-  can also permanently block or allow-list specific IPs from **Admin → IP Access**.
+  an IP after repeated failed logins/OTP attempts, independent of per-account lockout. Admins can
+  also permanently block or allow-list specific IPs via the `/api/admin/ip-access` endpoints
+  (no dedicated admin UI page currently — manage rules directly through the API).
 - **Session/device binding** — each session's JWT is bound to a hash of the User-Agent that
   created it; replaying a stolen cookie from a different browser/device is rejected.
 - **Passwordless "magic link" login** — an alternative to password + OTP: a one-time,
