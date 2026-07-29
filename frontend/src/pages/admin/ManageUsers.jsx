@@ -18,6 +18,15 @@ export default function ManageUsers() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Tracks which user rows are currently showing the raw AES-256-GCM
+  // ciphertext for phone instead of the decrypted number - purely a demo/
+  // verification toggle so it's easy to show "this is what's actually
+  // stored in MongoDB" in the UI without changing what's sent to the API.
+  const [revealedEncrypted, setRevealedEncrypted] = useState({});
+
+  const toggleReveal = (userId) => {
+    setRevealedEncrypted((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -141,7 +150,42 @@ export default function ManageUsers() {
                 <td className="px-4 py-3">
                   <span className="badge bg-white/10 capitalize text-white/70">{u.role}</span>
                 </td>
-                <td className="px-4 py-3 text-white/60">{u.phone || "-"}</td>
+                <td className="px-4 py-3 text-white/60">
+                  {u.phone ? (
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={
+                          revealedEncrypted[u._id]
+                            ? "font-mono text-[11px] text-amber-400 break-all"
+                            : ""
+                        }
+                        title={
+                          revealedEncrypted[u._id]
+                            ? "Raw AES-256-GCM ciphertext as stored in MongoDB (iv:authTag:ciphertext)"
+                            : "Decrypted for this admin view"
+                        }
+                      >
+                        {revealedEncrypted[u._id] ? u.phoneEncrypted : u.phone}
+                      </span>
+                      {u.phoneEncrypted && (
+                        <button
+                          type="button"
+                          onClick={() => toggleReveal(u._id)}
+                          className="shrink-0 rounded-lg bg-white/5 p-1.5 text-white/40 hover:bg-white/10 hover:text-white/70"
+                          title={
+                            revealedEncrypted[u._id]
+                              ? "Show decrypted phone number"
+                              : "Show raw encrypted value stored in the database"
+                          }
+                        >
+                          {revealedEncrypted[u._id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    "-"
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
                     <button onClick={() => openEdit(u)} className="rounded-lg bg-white/5 p-2 text-white/60 hover:bg-white/10">
