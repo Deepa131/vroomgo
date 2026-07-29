@@ -19,6 +19,13 @@ const sanitize = (userDoc) => {
   const obj = userDoc.toObject ? userDoc.toObject() : userDoc;
   const { password, resetPasswordToken, resetPasswordExpire, ...safe } = obj;
   if (safe.phone) {
+    // Keep the raw AES-256-GCM ciphertext ("iv:tag:cipher") exactly as
+    // stored in MongoDB, in ADDITION to the decrypted value below. This is
+    // only ever sent to an authenticated admin (this controller is mounted
+    // behind adminMiddleware) and exists purely so the admin UI can show
+    // proof that the value stored at rest is not the plaintext number -
+    // it's never used for anything functional.
+    safe.phoneEncrypted = safe.phone;
     try {
       safe.phone = decrypt(safe.phone);
     } catch (err) {

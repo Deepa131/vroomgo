@@ -36,13 +36,7 @@ const UserSchema = new Schema(
       minlength: 8,
       select: false,
     },
-    // ⚠️  IMPORTANT: Phone is ENCRYPTED (not hashed) with AES-256-GCM
-    // Stored as ciphertext ("iv:tag:cipher"), never in plaintext.
-    // MUST DECRYPT to retrieve original value - encryption is reversible.
-    // Never use bcrypt or any one-way hash for phone numbers.
-    // Encrypted automatically in the pre-save hook below. Decrypted via
-    // getDecryptedPhone() for the profile owner, or via the shared
-    // decrypt() util in admin.controller.js's sanitize() for admin listings.
+    
     phone: { type: String, trim: true, default: "" },
     role: {
       type: String,
@@ -62,9 +56,6 @@ const UserSchema = new Schema(
       type: Date,
     },
 
-    // --- Password reuse prevention & expiry ---
-    // Up to PASSWORD_HISTORY_LIMIT previous bcrypt hashes; a new password is
-    // rejected if it matches the current password or any entry here.
     passwordHistory: {
       type: [String],
       default: [],
@@ -75,7 +66,6 @@ const UserSchema = new Schema(
       default: Date.now,
     },
 
-    // --- Account lockout (brute-force defense) ---
     failedLoginAttempts: {
       type: Number,
       default: 0,
@@ -86,7 +76,7 @@ const UserSchema = new Schema(
       select: false,
     },
 
-    // --- Two-Factor Authentication (email OTP) ---
+    //  Two-Factor Authentication (email OTP) 
     // We never store the OTP itself, only a salted hash of it, the same way
     // we never store the raw password - if the DB ever leaked, the codes
     // inside it would be useless without also breaking bcrypt.
@@ -110,7 +100,7 @@ const UserSchema = new Schema(
       default: true,
     },
 
-    // --- Passwordless "magic link" login ---
+    // Passwordless "magic link" login 
     // A random nonce embedded in every magic-link token that's issued. It is
     // cleared as soon as a link is consumed (one-time use) and overwritten
     // whenever a new link is requested (so only the most recently requested
@@ -120,7 +110,7 @@ const UserSchema = new Schema(
       select: false,
     },
 
-    // --- Two-Factor Authentication (TOTP / authenticator app) ---
+    // Two-Factor Authentication (TOTP / authenticator app) 
     // RFC 6238 time-based one-time password, as an alternative to the email
     // OTP above. When isTotpEnabled is true, login's second factor is
     // verified against totpSecret (via speakeasy) instead of the emailed
@@ -140,7 +130,7 @@ const UserSchema = new Schema(
       default: false,
     },
 
-    // --- OAuth login (Google) ---
+    // OAuth login (Google) 
     // "local" accounts log in with a password; "google" accounts were
     // created via / linked to Google Sign-In and have no password the user
     // knows (a random one is generated so the schema's required password
@@ -196,8 +186,6 @@ UserSchema.methods.getDecryptedPhone = function () {
   }
 };
 
-// --- Password reuse prevention & 90-day expiry ---
-
 // True if `candidate` matches the current password or any of the last
 // PASSWORD_HISTORY_LIMIT previous password hashes.
 UserSchema.methods.isPasswordReused = async function (candidate) {
@@ -223,8 +211,6 @@ UserSchema.methods.isPasswordExpired = function () {
   const ageMs = Date.now() - this.passwordChangedAt.getTime();
   return ageMs > PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 };
-
-// --- Account lockout (brute-force defense) ---
 
 UserSchema.methods.isLocked = function () {
   return !!(this.lockUntil && this.lockUntil.getTime() > Date.now());
