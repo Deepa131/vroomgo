@@ -62,9 +62,14 @@ const helmetMiddleware = helmet({
  *        single-instance assignment app; use a Redis store behind a
  *        multi-instance production deployment).
  */
+// NOTE: max temporarily raised from 10 to 30 for Postman testing of the
+// system-wide IP-based brute-force block (utils/ipAccessControl.js), which
+// needs 20 failures (IP_MAX_FAILURES) to trigger - at max: 10 this route
+// limiter always fired first and masked that feature. Revert max to 10
+// before shipping to production.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many login attempts. Please try again later." },
@@ -96,7 +101,7 @@ const apiLimiter = rateLimit({
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many accounts created from this IP. Please try again later." },
